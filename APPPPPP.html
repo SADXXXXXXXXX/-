@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تطبيق راوي - Rawi Audiobook</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM via ESM -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.469.0?external=react"
+      }
+    }
+    </script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;600;700;900&display=swap');
+        
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Custom Animation for player */
+        .slide-up {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        
+        /* Smooth transition for views */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-black text-white overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            Play, Pause, SkipBack, SkipForward, Home, Search, Library, Heart, 
+            MoreHorizontal, ChevronDown, BookOpen, User, Bell, Settings, 
+            Moon, Sun, Globe, Camera, ArrowLeft, Shuffle, Repeat, X, 
+            Plus, Check, Edit2, RotateCcw, RotateCw, Layers, ChevronRight,
+            Clock, StepForward, StepBack, Sparkles, TrendingUp, MessageCircle, Trash2, ListMusic
+        } from 'lucide-react';
+
+        // --- Image URLs Constants ---
+        const IMG_ZIKOLA = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%A7%D8%B1%D8%B6%20%D8%B2%D9%8A%D9%83%D9%88%D9%84%D8%A7_2026-01-01_11-48-31.jpg";
+        const IMG_AMARITA = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%A7%D9%85%D8%A7%D8%B1%D9%8A%D8%AA%D8%A7_2026-01-01_11-48-35.jpg";
+        const IMG_ARJAA = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%A7%D9%84%D8%B9%D8%B1%D8%AC%D8%A7%D8%A1-288-k483128.jpg";
+        const IMG_SAHIRA = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%A7%D9%84%D8%B3%D8%A7%D8%AD%D8%B1%D8%A9%20%D8%A7%D9%84%D9%87%D8%AC%D9%8A%D9%86%D8%A9_2026-01-01_11-48-43.jpg";
+        const IMG_ROT = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%A7%D9%86%D9%86%D9%8A%20%D8%A7%D8%AA%D8%B9%D9%81%D9%86%20%D8%B1%D8%B9%D8%A8%D8%A7_2026-01-01_11-48-16.jpg";
+        const IMG_KHOF_1 = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%AE%D9%88%D9%81_2026-01-01_11-47-57.jpg";
+        const IMG_KHOF_2 = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%AE%D9%88%D9%81%20%D8%A7%D9%84%D8%AC%D8%B2%D8%A1%20%D8%A7%D9%84%D8%AB%D8%A7%D9%86%D9%8A%D9%8A.jpg";
+        const IMG_KHOF_3 = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%AE%D9%88%D9%81%20%D8%A7%D9%84%D8%AC%D8%B2%D8%A1%20%D8%A7%D9%84%D8%AB%D8%A7%D9%84%D8%AB_2026-01-01_11-48-08.jpg";
+        const IMG_BASATIN = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%A8%D8%B3%D8%A7%D8%AA%D9%8A%D9%86%20%D8%B9%D8%B1%D8%A8%D8%B3%D8%AA%D8%A7%D9%86_2026-01-01_11-47-53.jpg";
+        const IMG_WADI = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D9%88%D8%A7%D8%AF%20%D8%A7%D9%84%D8%B0%D8%A6%D8%A7%D8%A8%20%D8%A7%D9%84%D9%85%D9%86%D8%B3%D9%8A%D8%A9_2026-01-01_11-48-27.jpg";
+        const IMG_GARTIN = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%AC%D8%A7%D8%B1%D8%AA%D9%8A%D9%86_2026-01-01_11-48-01.jpg";
+        const IMG_ARIN = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%B9%D8%B1%D9%8A%D9%86%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AF_2026-01-01_11-48-20.jpg";
+        const IMG_PUCCINI = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D9%8A%D8%AA%D8%B4%D9%8A%D9%86%D9%8A_2026-01-01_16-29-26.jpg";
+        const IMG_SHAMA = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%AF%D9%82%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B4%D8%A7%D9%85%D9%8843749543.jpg";
+        const IMG_AKMA = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%A7%D9%85%D9%88%D8%A7%D8%AC%20%D8%A7%D9%83%D9%85%D8%A7_1580249491129-336x480.jpg";
+        const IMG_RAYAH = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%B1%D9%8A%D8%A7%D8%AD%20%D9%87%D8%AC%D8%B1_2026-01-01_11-48-12.jpg";
+        const IMG_ASBA = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%B9%D8%B1%D9%8A%D9%86%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AF_2026-01-01_11-48-20.jpg"; 
+        const IMG_UKTUB = "https://raw.githubusercontent.com/SADXXXXXXXXX/MY_app_assets/refs/heads/main/%D8%A3%D9%83%D8%AA%D8%A8-%D8%AD%D8%AA%D9%89-%D9%84%D8%A7-%D9%8A%D8%A3%D9%83%D9%84%D9%86%D9%8A-%D8%A7%D9%84%D8%B4%D9%8A%D8%B7%D8%A7%D9%86-%D9%85%D8%A7%D8%B1%D9%8A%D8%A7-%D8%A7%D9%84%D8%AD%D8%B3%D9%8A%D9%8A-pdf.jpg";
+
+        // --- Data Structure ---
+        const seriesData = [
+            { 
+                id: 's_khof', 
+                title: "سلسلة خوف", 
+                author: "أسامة المسلم",
+                coverImage: IMG_KHOF_1, 
+                coverColor: "bg-gradient-to-br from-gray-900 to-red-900", 
+                books: [
+                    { id: 101, title: "خوف - الجزء الأول", duration: "08:30:00", coverImage: IMG_KHOF_1 }, 
+                    { id: 102, title: "خوف - الجزء الثاني", duration: "09:15:00", coverImage: IMG_KHOF_2 }, 
+                    { id: 103, title: "خوف - الجزء الثالث", duration: "10:00:00", coverImage: IMG_KHOF_3 }
+                ] 
+            },
+            { 
+                id: 's_basatin', 
+                title: "بساتين عربستان", 
+                author: "أسامة المسلم",
+                coverImage: IMG_BASATIN, 
+                coverColor: "bg-gradient-to-br from-green-900 to-black", 
+                books: [
+                    { id: 201, title: "بساتين عربستان", duration: "11:00:00", coverImage: IMG_BASATIN }, 
+                    { id: 202, title: "عصبة الشياطين", duration: "10:45:00", coverImage: IMG_ASBA }, 
+                    { id: 203, title: "رياح هجر", duration: "09:30:00", coverImage: IMG_RAYAH }, 
+                    { id: 204, title: "العرجاء", duration: "10:15:00", coverImage: IMG_ARJAA }, 
+                    { id: 205, title: "الساحرة الهجينة", duration: "09:50:00", coverImage: IMG_SAHIRA }, 
+                    { id: 206, title: "عرين الأسد", duration: "12:00:00", coverImage: IMG_ARIN }
+                ] 
+            },
+            { 
+                id: 's_zikola', 
+                title: "أرض زيكولا", 
+                author: "عمرو عبد الحميد",
+                coverImage: IMG_ZIKOLA, 
+                coverColor: "bg-gradient-to-br from-blue-800 to-indigo-900", 
+                books: [
+                    { id: 301, title: "أرض زيكولا", duration: "07:30:00", coverImage: IMG_ZIKOLA }, 
+                    { id: 302, title: "أمار يتا", duration: "08:00:00", coverImage: IMG_AMARITA }, 
+                    { id: 303, title: "وادي الذئاب المنسية", duration: "08:45:00", coverImage: IMG_WADI }
+                ] 
+            },
+            { 
+                id: 's_gartin', 
+                title: "قواعد جارتين", 
+                author: "عمرو عبد الحميد",
+                coverImage: IMG_GARTIN, 
+                coverColor: "bg-gradient-to-br from-yellow-800 to-orange-900", 
+                books: [
+                    { id: 401, title: "قواعد جارتين", duration: "09:00:00", coverImage: IMG_GARTIN }, 
+                    { id: 402, title: "دقات الشامة", duration: "09:30:00", coverImage: IMG_SHAMA }, 
+                    { id: 403, title: "أمواج أكما", duration: "10:00:00", coverImage: IMG_AKMA }
+                ] 
+            },
+            { 
+                id: 's_uktub', 
+                title: "اكتب حتى لا يأكلني الشيطان", 
+                author: "ماريا الحسي",
+                coverImage: IMG_UKTUB, 
+                coverColor: "bg-gradient-to-br from-gray-700 to-slate-900", 
+                books: [
+                    { id: 501, title: "اكتب حتى لا يأكلني الشيطان", duration: "05:00:00", coverImage: IMG_UKTUB }
+                ] 
+            },
+        ];
+
+        // 2. Audio Novels Data
+        const booksData = [
+            { id: 1, title: "إنني أتعفن رعباً", author: "أحمد خالد توفيق", coverImage: IMG_ROT, coverColor: "bg-gradient-to-br from-red-950 to-black", totalDuration: "04:20:00", lastProgress: 0, chapters: [{ title: "الفصل الأول", duration: "45:00" }] },
+            { id: 2, title: "بيتشيني", author: "عمرو عبد الحميد", coverImage: IMG_PUCCINI, coverColor: "bg-gradient-to-br from-pink-900 to-purple-900", totalDuration: "05:45:00", lastProgress: 0, chapters: [{ title: "المقدمة", duration: "15:00" }] },
+        ];
+
+        const newArrivalsData = [
+            { id: 301, title: "أرض زيكولا", author: "عمرو عبد الحميد", coverImage: IMG_ZIKOLA, coverColor: "bg-gradient-to-br from-blue-800 to-indigo-900", totalDuration: "07:30:00", lastProgress: 0, chapters: [{ title: "السرداب", duration: "20:00" }] },
+            { id: 401, title: "قواعد جارتين", author: "عمرو عبد الحميد", coverImage: IMG_GARTIN, coverColor: "bg-gradient-to-br from-yellow-800 to-orange-900", totalDuration: "09:00:00", lastProgress: 0, chapters: [{ title: "القواعد", duration: "25:00" }] },
+        ];
+
+        // NEW: Most Listened Data (Mock)
+        const mostListenedData = [
+            { id: 206, title: "عرين الأسد", author: "أسامة المسلم", coverImage: IMG_ARIN, coverColor: "bg-green-900", totalDuration: "12:00:00", lastProgress: 0 },
+            { id: 103, title: "خوف - الجزء الثالث", author: "أسامة المسلم", coverImage: IMG_KHOF_3, coverColor: "bg-red-900", totalDuration: "10:00:00", lastProgress: 0 },
+            { id: 501, title: "اكتب حتى لا يأكلني الشيطان", author: "ماريا الحسي", coverImage: IMG_UKTUB, coverColor: "bg-gray-800", totalDuration: "05:00:00", lastProgress: 0 },
+        ];
+
+        const translations = {
+            ar: { 
+                greeting: "مرحباً بالقارئ", 
+                home: "الرئيسية", 
+                search: "بحث", 
+                library: "مكتبتي", 
+                settings: "الإعدادات", 
+                darkMode: "الوضع الداكن", 
+                language: "اللغة", 
+                switchLang: "English", 
+                continueListening: "أكمل الاستماع", 
+                series: "سلسلة روايات", 
+                audioNovels: "الروايات المسموعة", 
+                mostListened: "الأكثر استماعاً", 
+                newArrivals: "أضيف حديثاً",
+                searchPlaceholder: "ابحث باسم الرواية أو المؤلف...", 
+                emptyLibrary: "لم تقم بإضافة أي كتب بعد", 
+                notifications: "الإشعارات", 
+                noNotifications: "لا توجد إشعارات جديدة", 
+                parts: "أجزاء", 
+                likedBooks: "الكتب المفضلة", 
+                likedDesc: "كل الروايات التي أحببتها",
+                clearAll: "مسح الكل",
+                timer: "مؤقت النوم",
+                timerMsg: "سيتم إيقاف التشغيل بعد 15 دقيقة",
+                speed: "السرعة"
+            }
+        };
+
+        // Helper component for Cover Image
+        const CoverImage = ({ src, fallbackColor, className, children, title }) => {
+            const [error, setError] = useState(false);
+            
+            useEffect(() => {
+                setError(false);
+            }, [src]);
+            
+            const safeSrc = src;
+
+            if (error || !safeSrc) {
+                return (
+                    <div className={`${className} ${fallbackColor || 'bg-gray-700'} flex items-center justify-center relative overflow-hidden flex-col text-center p-2`}>
+                        <span className="font-bold text-white/90 drop-shadow-md text-xs">{title}</span>
+                        {children}
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`${className} relative overflow-hidden`}>
+                    <img 
+                        src={safeSrc} 
+                        alt="cover" 
+                        className="w-full h-full object-cover" 
+                        onError={() => setError(true)}
+                    />
+                    <div className="absolute inset-0 bg-black/20"></div>
+                    {children}
+                </div>
+            );
+        };
+
+        function App() {
+            const [lang, setLang] = useState('ar');
+            const [theme, setTheme] = useState('dark');
+            const [activeTab, setActiveTab] = useState('home');
+            const [selectedSeries, setSelectedSeries] = useState(null);
+
+            // Combine books
+            const allAudioNovels = useMemo(() => {
+                const standalone = booksData;
+                const fromSeries = seriesData.flatMap(series => 
+                    series.books.map(book => ({
+                        ...book,
+                        author: series.author,
+                        series: series.title,
+                        coverImage: book.coverImage || series.coverImage,
+                        coverColor: series.coverColor
+                    }))
+                );
+                
+                const combined = [...standalone, ...fromSeries];
+                const unique = [];
+                const map = new Map();
+                for (const item of combined) {
+                    if(!map.has(item.id)){
+                        map.set(item.id, true);
+                        unique.push(item);
+                    }
+                }
+                return unique;
+            }, []);
+
+            // Player State
+            const [currentBook, setCurrentBook] = useState(allAudioNovels[0]);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [isPlayerOpen, setIsPlayerOpen] = useState(false);
+            const [progress, setProgress] = useState(0);
+            const [isRepeat, setIsRepeat] = useState(false);
+            
+            // NEW: Library & Likes
+            const [likedBooks, setLikedBooks] = useState([]); // Array of IDs
+
+            // NEW: Search
+            const [searchQuery, setSearchQuery] = useState("");
+
+            // Data State
+            const [listeningHistory, setListeningHistory] = useState(booksData.filter(b => b.lastProgress > 0));
+            const [notifications, setNotifications] = useState([
+                { id: 1, text: "تم إضافة رواية جديدة: أرض زيكولا", time: "منذ ساعتين", type: "info" },
+                { id: 2, text: "أكمل الاستماع إلى 'خوف' من حيث توقفت", time: "منذ يوم", type: "reminder" },
+            ]);
+            
+            // UI State
+            const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [isScrolled, setIsScrolled] = useState(false);
+            const [toast, setToast] = useState(null); // For timer message
+
+            const [userProfile, setUserProfile] = useState({ name: "مستخدم جديد", avatar: null });
+            const mainScrollRef = useRef(null);
+
+            const t = translations[lang];
+            const isDark = theme === 'dark';
+
+            // Fake Player Interval
+            useEffect(() => {
+                let interval;
+                if (isPlaying) {
+                    interval = setInterval(() => {
+                        setProgress((prev) => prev >= 100 ? (isRepeat ? 0 : 100) : prev + 0.1);
+                    }, 100);
+                }
+                return () => clearInterval(interval);
+            }, [isPlaying, isRepeat]);
+
+            // Scroll Handler
+            useEffect(() => {
+                const handleScroll = () => {
+                    if (mainScrollRef.current) {
+                        setIsScrolled(mainScrollRef.current.scrollTop > 20);
+                    }
+                };
+                const div = mainScrollRef.current;
+                div?.addEventListener('scroll', handleScroll);
+                return () => div?.removeEventListener('scroll', handleScroll);
+            }, []);
+
+            // Toast Timer
+            useEffect(() => {
+                if (toast) {
+                    const timer = setTimeout(() => setToast(null), 3000);
+                    return () => clearTimeout(timer);
+                }
+            }, [toast]);
+
+            const handleBookClick = (book) => {
+                setCurrentBook(book);
+                const newHistory = listeningHistory.filter(b => b.id !== book.id);
+                setListeningHistory([book, ...newHistory]);
+                setProgress(book.lastProgress || 0);
+                setIsPlayerOpen(true);
+                setIsPlaying(true);
+            };
+
+            // NEW: Toggle Like
+            const toggleLike = (bookId) => {
+                setLikedBooks(prev => 
+                    prev.includes(bookId) 
+                    ? prev.filter(id => id !== bookId) 
+                    : [...prev, bookId]
+                );
+            };
+
+            // NEW: Clear Notifications
+            const clearNotifications = () => {
+                setNotifications([]);
+            };
+
+            // NEW: Player Controls
+            const handleSkipForward = () => {
+                setProgress(prev => Math.min(prev + 5, 100));
+            };
+
+            const handleSkipBack = () => {
+                setProgress(prev => Math.max(prev - 5, 0));
+            };
+
+            const handleTimer = () => {
+                setToast(t.timerMsg);
+            };
+
+            const Avatar = ({ size = "w-10 h-10", onClick }) => (
+                <div onClick={onClick} className={`${size} rounded-full bg-gray-600 flex items-center justify-center overflow-hidden cursor-pointer border-2 border-transparent hover:border-green-500 transition-all`}>
+                    {userProfile.avatar ? <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" /> : <User className="text-white/70" size={parseInt(size.replace(/\D/g,'')) / 2} />}
+                </div>
+            );
+
+            // --- Views ---
+
+            const renderHome = () => (
+                <div className="px-4 mt-6 pb-32 fade-in">
+                     {/* Continue Listening */}
+                     {listeningHistory.length > 0 && (
+                        <section className="mb-8 pb-6 border-b border-gray-500/10">
+                            <h2 className={`text-2xl font-bold mb-4 px-1 text-left ${isDark ? 'text-white' : 'text-gray-900'}`}>{t.continueListening}</h2>
+                            <div className="flex gap-4 overflow-x-auto pb-4 px-1 scrollbar-hide">
+                                {listeningHistory.map((book) => (
+                                <div key={book.id} onClick={() => handleBookClick(book)} className="flex-shrink-0 w-32 cursor-pointer group relative">
+                                     <CoverImage src={book.coverImage} fallbackColor={book.coverColor} title={book.title} className="w-32 h-32 rounded-md shadow-lg mb-3">
+                                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700/50 z-10">
+                                            <div className="h-full bg-green-500" style={{width: `${book.lastProgress || 5}%`}}></div>
+                                        </div>
+                                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center z-20">
+                                            <div className="bg-white text-black rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 shadow-xl">
+                                                <Play size={16} fill="currentColor" />
+                                            </div>
+                                        </div>
+                                    </CoverImage>
+                                    <h3 className={`font-bold text-xs truncate text-left ${isDark ? 'text-white' : 'text-gray-900'}`}>{book.title}</h3>
+                                </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* NEW: Most Listened Section */}
+                    <section className="mb-8 pb-6 border-b border-gray-500/10">
+                         <div className="flex items-center gap-2 mb-4 px-1">
+                            <TrendingUp size={24} className="text-green-500" />
+                            <h2 className={`text-2xl font-bold text-left ${isDark ? 'text-white' : 'text-gray-900'}`}>{t.mostListened}</h2>
+                        </div>
+                        <div className="flex gap-4 overflow-x-auto pb-4 px-1 scrollbar-hide">
+                            {mostListenedData.map((book) => (
+                                <div key={book.id} onClick={() => handleBookClick(book)} className="flex-shrink-0 w-36 cursor-pointer group relative">
+                                    <CoverImage src={book.coverImage} fallbackColor={book.coverColor} title={book.title} className="w-36 h-36 rounded-xl shadow-lg mb-3" />
+                                    <h3 className={`font-bold text-sm truncate text-left ${isDark ? 'text-white' : 'text-gray-900'}`}>{book.title}</h3>
+                                    <p className="text-[10px] text-gray-500 truncate">{book.author}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* Series */}
+                    <section className="mb-8 pb-6 border-b border-gray-500/10">
+                        <h2 className={`text-2xl font-bold mb-4 px-1 text-left ${isDark ? 'text-white' : 'text-gray-900'}`}>{t.series}</h2>
+                        <div className="flex gap-4 overflow-x-auto pb-2 px-1 scrollbar-hide">
+                            {seriesData.map((series) => (
+                                <div key={series.id} onClick={() => {setSelectedSeries(series); setActiveTab('series_detail');}} className={`flex-shrink-0 w-64 p-3 rounded-xl cursor-pointer transition relative overflow-hidden border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <CoverImage src={series.coverImage} fallbackColor={series.coverColor} title={series.title} className="w-14 h-16 rounded shadow-md flex-shrink-0">
+                                             {!series.coverImage && <Layers size={20} className="text-white/80" />}
+                                        </CoverImage>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className={`font-bold text-base mb-1 truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{series.title}</h3>
+                                            <p className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{series.books.length} {t.parts}</p>
+                                        </div>
+                                        <ChevronRight size={18} className="opacity-40" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* New Arrivals */}
+                    <section className="mb-8 pb-6 border-b border-gray-500/10">
+                        <div className="flex items-center gap-2 mb-4 px-1">
+                            <Sparkles size={24} className="text-yellow-500" />
+                            <h2 className={`text-2xl font-bold text-left ${isDark ? 'text-white' : 'text-gray-900'}`}>{t.newArrivals}</h2>
+                        </div>
+                        <div className="flex gap-4 overflow-x-auto pb-4 px-1 scrollbar-hide">
+                            {newArrivalsData.map((book) => (
+                                <div key={book.id} onClick={() => handleBookClick(book)} className="flex-shrink-0 w-32 cursor-pointer group relative">
+                                    <CoverImage src={book.coverImage} fallbackColor={book.coverColor} title={book.title} className="w-32 h-32 rounded-md shadow-lg mb-3" />
+                                    <h3 className={`font-bold text-xs truncate text-left ${isDark ? 'text-white' : 'text-gray-900'}`}>{book.title}</h3>
+                                    <p className="text-[10px] text-gray-500 truncate">{book.author}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                     {/* All Novels Grid - UPDATED: Smaller Grid (3 cols on mobile) */}
+                     <section className="mb-8">
+                        <h2 className={`text-2xl font-bold mb-4 px-1 text-left ${isDark ? 'text-white' : 'text-gray-900'}`}>{t.audioNovels}</h2>
+                        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3 px-1">
+                            {allAudioNovels.map((book) => (
+                                <div key={book.id} onClick={() => handleBookClick(book)} className="cursor-pointer group">
+                                     <CoverImage src={book.coverImage} fallbackColor={book.coverColor} title={book.title} className="w-full aspect-[2/3] rounded-md shadow-lg mb-2" />
+                                     <h3 className={`font-bold text-[10px] sm:text-xs truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{book.title}</h3>
+                                     <p className="text-[9px] text-gray-500 truncate">{book.author}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            );
+
+            // NEW: Search View
+            const renderSearch = () => {
+                const filteredBooks = allAudioNovels.filter(b => 
+                    b.title.includes(searchQuery) || b.author.includes(searchQuery)
+                );
+
+                return (
+                    <div className="px-4 mt-6 pb-32 fade-in">
+                        <div className="sticky top-0 z-20 pt-4 pb-4 bg-black">
+                            <h2 className="text-3xl font-bold mb-4">{t.search}</h2>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                <input 
+                                    type="text" 
+                                    placeholder={t.searchPlaceholder}
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-gray-800 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                                />
+                                {searchQuery && (
+                                    <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                                        <X size={18} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-4">
+                            {searchQuery ? (
+                                <div className="space-y-4">
+                                    {filteredBooks.length > 0 ? (
+                                        filteredBooks.map(book => (
+                                            <div key={book.id} onClick={() => handleBookClick(book)} className="flex items-center gap-4 p-3 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-800">
+                                                <CoverImage src={book.coverImage} fallbackColor={book.coverColor} title={book.title} className="w-16 h-16 rounded-md flex-shrink-0" />
+                                                <div className="flex-1">
+                                                    <h3 className="font-bold">{book.title}</h3>
+                                                    <p className="text-sm text-gray-400">{book.author}</p>
+                                                </div>
+                                                <Play size={20} className="text-gray-500" />
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center text-gray-500 mt-10">لا توجد نتائج</div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div>
+                                    <h3 className="text-lg font-bold mb-4">تصفح الفئات</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {['رعب', 'غموض', 'رومانسي', 'تاريخي', 'فلسفة', 'خيال'].map((cat, i) => (
+                                            <div key={i} className={`h-24 rounded-lg flex items-center justify-center font-bold text-xl relative overflow-hidden bg-gradient-to-br ${['from-red-600 to-orange-600', 'from-purple-600 to-blue-600', 'from-pink-600 to-rose-600', 'from-amber-600 to-yellow-600', 'from-teal-600 to-green-600', 'from-indigo-600 to-cyan-600'][i]}`}>
+                                                <span className="relative z-10">{cat}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            // NEW: Library View (Liked Songs Style)
+            const renderLibrary = () => {
+                const likedList = allAudioNovels.filter(b => likedBooks.includes(b.id));
+
+                return (
+                    <div className="px-4 mt-6 pb-32 fade-in">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <Avatar onClick={() => setIsSettingsOpen(true)} />
+                                <h1 className="text-2xl font-bold">{t.library}</h1>
+                            </div>
+                            <Plus size={24} className="text-gray-400" />
+                        </div>
+
+                        {/* Liked Books Playlist Header */}
+                        <div className="bg-gradient-to-br from-indigo-700 to-purple-900 rounded-xl p-6 mb-8 flex items-end gap-4 cursor-pointer hover:opacity-95 transition shadow-lg">
+                            <div className="w-20 h-20 bg-white/20 rounded flex items-center justify-center shadow-inner">
+                                <Heart fill="white" size={32} className="text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-white mb-1">{t.likedBooks}</h2>
+                                <p className="text-xs text-indigo-200">{likedList.length} كتب • {t.likedDesc}</p>
+                            </div>
+                        </div>
+
+                        {/* List */}
+                        <div>
+                            {likedList.length > 0 ? (
+                                <div className="space-y-4">
+                                    {likedList.map((book, idx) => (
+                                        <div key={book.id} onClick={() => handleBookClick(book)} className="flex items-center gap-4 p-2 hover:bg-gray-900 rounded-md cursor-pointer group">
+                                            <span className="text-gray-500 w-6 text-center">{idx + 1}</span>
+                                            <CoverImage src={book.coverImage} fallbackColor={book.coverColor} title={book.title} className="w-12 h-12 rounded flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <h3 className={`font-bold text-sm ${currentBook.id === book.id && isPlaying ? 'text-green-500' : 'text-white'}`}>{book.title}</h3>
+                                                <p className="text-xs text-gray-400">{book.author}</p>
+                                            </div>
+                                            <button onClick={(e) => { e.stopPropagation(); toggleLike(book.id); }} className="text-green-500 p-2">
+                                                <Heart fill="currentColor" size={18} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center mt-20 opacity-50">
+                                    <ListMusic size={48} className="mb-4" />
+                                    <p>{t.emptyLibrary}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const renderSeriesDetail = () => (
+                <div className="pb-32 fade-in">
+                    <div className={`sticky top-0 z-20 p-4 flex items-center gap-4 ${isDark ? 'bg-black/80 backdrop-blur-md' : 'bg-white/80 backdrop-blur-md'}`}>
+                        <button onClick={() => setActiveTab('home')} className="p-2 rounded-full hover:bg-gray-500/20">
+                            <ArrowLeft size={24} />
+                        </button>
+                        <h2 className="font-bold text-xl">{selectedSeries?.title}</h2>
+                    </div>
+                    <div className="p-6 text-center">
+                        <CoverImage src={selectedSeries?.coverImage} fallbackColor={selectedSeries?.coverColor} title={selectedSeries?.title} className="w-40 h-60 mx-auto rounded-lg shadow-2xl mb-6" />
+                        <h1 className="text-2xl font-bold mb-2">{selectedSeries?.title}</h1>
+                        <p className="text-gray-500 mb-6">{selectedSeries?.author} • {selectedSeries?.books.length} {t.parts}</p>
+                        
+                        <div className="space-y-4 text-left">
+                            {selectedSeries?.books.map((book, idx) => (
+                                <div key={book.id} onClick={() => handleBookClick({...book, author: selectedSeries.author, series: selectedSeries.title})} className={`flex items-center gap-4 p-3 rounded-lg cursor-pointer ${isDark ? 'bg-gray-900 hover:bg-gray-800' : 'bg-gray-100 hover:bg-gray-200'}`}>
+                                    <div className="w-10 h-10 flex items-center justify-center rounded bg-gray-500/20 font-bold text-gray-500">
+                                        {idx + 1}
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                        <h3 className="font-bold text-sm">{book.title}</h3>
+                                        <p className="text-xs text-gray-500">{book.duration}</p>
+                                    </div>
+                                    <div className="p-2 rounded-full bg-green-500 text-white">
+                                        <Play size={16} fill="currentColor" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // --- Main Render ---
+            return (
+                <div className={`flex flex-col h-screen font-sans overflow-hidden transition-colors duration-300 select-none ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'}`} dir="ltr">
+                    
+                    {/* Toast Notification */}
+                    {toast && (
+                        <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[60] bg-white text-black px-6 py-2 rounded-full shadow-xl animate-bounce">
+                            {toast}
+                        </div>
+                    )}
+
+                    {/* Main Content Area */}
+                    <div ref={mainScrollRef} className={`flex-1 overflow-y-auto transition-all duration-300 ${isPlayerOpen ? 'scale-95 opacity-80 origin-top' : ''}`}>
+                        
+                        {/* Header (Only on Home) */}
+                        {activeTab === 'home' && (
+                            <div className={`p-6 pt-8 sticky top-0 z-30 transition-all duration-300 ${isScrolled ? (isDark ? 'bg-black border-b border-gray-800' : 'bg-white border-b border-gray-200 shadow-sm') : 'bg-transparent'}`}>
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar onClick={() => setIsSettingsOpen(true)} />
+                                        <div className="flex flex-col items-start">
+                                            <span className={`text-xs uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t.greeting}</span>
+                                            <h1 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{userProfile.name}</h1>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-4 items-center">
+                                        <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="relative p-2 hover:bg-gray-800/20 rounded-full transition">
+                                            <Bell size={22} className={isDark ? "text-white" : "text-gray-700"} />
+                                            {notifications.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-black"></span>}
+                                        </button>
+                                        <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-2 hover:bg-gray-800/20 rounded-full transition">
+                                            <Settings size={22} className={isDark ? "text-white" : "text-gray-700"} />
+                                        </button>
+                                    </div>
+                                </div>
+                                {/* Notifications Dropdown */}
+                                {isNotificationsOpen && (
+                                    <div className={`absolute top-20 right-6 left-6 md:w-80 md:left-auto md:right-6 p-4 rounded-xl shadow-2xl z-20 border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+                                        <div className="flex justify-between items-center mb-3 border-b border-gray-500/20 pb-2">
+                                            <h3 className="font-bold text-sm">{t.notifications}</h3>
+                                            {notifications.length > 0 && (
+                                                <button onClick={clearNotifications} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1">
+                                                    <Trash2 size={12} /> {t.clearAll}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="space-y-3">
+                                            {notifications.length > 0 ? notifications.map(n => (
+                                                <div key={n.id} className="text-xs p-2 rounded bg-gray-500/10">
+                                                    <p className="font-bold">{n.text}</p>
+                                                    <p className="opacity-50 mt-1">{n.time}</p>
+                                                </div>
+                                            )) : (
+                                                <div className="text-center py-4 text-gray-500 text-xs">{t.noNotifications}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'home' ? renderHome() 
+                         : activeTab === 'search' ? renderSearch()
+                         : activeTab === 'library' ? renderLibrary()
+                         : activeTab === 'series_detail' ? renderSeriesDetail() 
+                         : null
+                        }
+                    </div>
+
+                    {/* Bottom Nav */}
+                    {!isPlayerOpen && (
+                        <div className={`fixed bottom-0 w-full pb-6 pt-4 px-6 flex justify-between items-center z-40 border-t ${isDark ? 'bg-black border-gray-800' : 'bg-white border-gray-200'}`}>
+                            <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-green-500' : 'text-gray-500'}`}>
+                                <Home size={24} fill={activeTab === 'home' ? "currentColor" : "none"} />
+                                <span className="text-[10px]">{t.home}</span>
+                            </button>
+                            <button onClick={() => setActiveTab('search')} className={`flex flex-col items-center gap-1 ${activeTab === 'search' ? 'text-green-500' : 'text-gray-500'}`}>
+                                <Search size={24} />
+                                <span className="text-[10px]">{t.search}</span>
+                            </button>
+                            <button onClick={() => setActiveTab('library')} className={`flex flex-col items-center gap-1 ${activeTab === 'library' ? 'text-green-500' : 'text-gray-500'}`}>
+                                <Library size={24} />
+                                <span className="text-[10px]">{t.library}</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Player Modal / Full Screen */}
+                    {isPlayerOpen && (
+                        <div className={`fixed inset-0 z-50 flex flex-col slide-up ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
+                            {/* Player Header */}
+                            <div className="flex justify-between items-center p-6">
+                                <button onClick={() => setIsPlayerOpen(false)} className="p-2 hover:bg-gray-500/20 rounded-full">
+                                    <ChevronDown size={28} />
+                                </button>
+                                <span className="text-xs tracking-widest uppercase opacity-70">الآن قيد التشغيل</span>
+                                <button className="p-2 hover:bg-gray-500/20 rounded-full">
+                                    <MoreHorizontal size={24} />
+                                </button>
+                            </div>
+
+                            {/* Art */}
+                            <div className="flex-1 flex items-center justify-center p-8">
+                                <CoverImage 
+                                    src={currentBook.coverImage} 
+                                    fallbackColor={currentBook.coverColor} 
+                                    title={currentBook.title} 
+                                    className="w-full aspect-square max-w-sm rounded-2xl shadow-2xl mx-auto" 
+                                />
+                            </div>
+
+                            {/* Controls */}
+                            <div className="px-8 pb-12">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <h2 className="text-2xl font-bold mb-1 leading-tight">{currentBook.title}</h2>
+                                        <p className="text-gray-500">{currentBook.author}</p>
+                                    </div>
+                                    <button onClick={() => toggleLike(currentBook.id)} className={`${likedBooks.includes(currentBook.id) ? 'text-green-500' : 'text-white'} p-2 transition`}>
+                                        <Heart size={28} fill={likedBooks.includes(currentBook.id) ? "currentColor" : "none"} />
+                                    </button>
+                                </div>
+
+                                {/* Progress Bar */}
+                                <div className="mb-6">
+                                    <div className="h-1.5 bg-gray-500/30 rounded-full w-full mb-2 cursor-pointer relative group" onClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const p = ((e.clientX - rect.left) / rect.width) * 100;
+                                        setProgress(p);
+                                    }}>
+                                        <div className="absolute h-full bg-green-500 rounded-full" style={{width: `${progress}%`}}></div>
+                                        <div className="absolute h-3 w-3 bg-white rounded-full top-1/2 -translate-y-1/2 shadow opacity-0 group-hover:opacity-100" style={{left: `${progress}%`}}></div>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-gray-500 font-mono">
+                                        <span>{(progress * 10).toFixed(2)}</span>
+                                        <span>{currentBook.totalDuration || "10:00"}</span>
+                                    </div>
+                                </div>
+
+                                {/* Main Buttons */}
+                                <div className="flex justify-between items-center mb-8">
+                                    <button className="text-gray-500 hover:text-white"><Shuffle size={20} /></button>
+                                    <button onClick={handleSkipBack} className="text-white hover:scale-110 transition active:scale-95"><SkipBack size={28} fill="currentColor" /></button>
+                                    
+                                    <button onClick={() => setIsPlaying(!isPlaying)} className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-black hover:scale-105 transition shadow-lg shadow-green-500/20 active:scale-95">
+                                        {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+                                    </button>
+                                    
+                                    <button onClick={handleSkipForward} className="text-white hover:scale-110 transition active:scale-95"><SkipForward size={28} fill="currentColor" /></button>
+                                    <button onClick={() => setIsRepeat(!isRepeat)} className={`${isRepeat ? 'text-green-500' : 'text-gray-500'} hover:text-white`}><Repeat size={20} /></button>
+                                </div>
+                                
+                                <div className="flex justify-center gap-6 opacity-50">
+                                    <button className="flex flex-col items-center gap-1 text-xs hover:text-green-500 transition"><Clock size={18} /> {t.speed}</button>
+                                    <button onClick={handleTimer} className="flex flex-col items-center gap-1 text-xs hover:text-green-500 transition"><Moon size={18} /> {t.timer}</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
